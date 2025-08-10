@@ -291,7 +291,7 @@ const keywords = [
     "Total Sales"
 ];
 
-// Menu Mix Keywords
+// Menu Mix Keywords with categories
 const menuKeywords = [
     "Tandoori Masala dip",
     "Dynamite Spicy Mayo Dip", 
@@ -304,7 +304,20 @@ const menuKeywords = [
     "ADDON MED FRIES & PEPSI",
     "ADDON LRG FRIES & PEPSI",
     "CHEESE",
-    "MAYO EGGLES"
+    "MAYO EGGLES",
+    "2 Dips"
+];
+
+// Categories for calculations
+const upsellItems = [
+    "CHEESE", "MAYO EGGLES", "2 Dips", "Tandoori Masala dip", 
+    "Dynamite Spicy Mayo Dip", "Nashville Hot Pepper Dip", 
+    "ADDON REG FRIES & PEPSI", "FRIES+ PEPSI ADDON-MED.", 
+    "ADDON MED FRIES & PEPSI", "ADDON LRG FRIES & PEPSI"
+];
+
+const dessertItems = [
+    "Choco Mud Pie", "Coffee Mousse Cake", "Choclate Lava Cake"
 ];
 
 // Order Source and Sales Type keywords for HS Report
@@ -386,6 +399,12 @@ function renderDSRTable(d1, d2){
     }
     html += '</tbody></table>';
     document.getElementById("dsrTableWrap").innerHTML = html;
+    
+    // Store DSR data globally for use in menu mix calculations
+    window.dsrData = {
+        day: d1,
+        mtd: d2
+    };
 }
 
 // Menu Mix Processing Functions
@@ -491,6 +510,10 @@ function extractMenuItemsFromSheet(sheet){
                     
                     // Only update if we found a better value
                     if(foundValue && (!result[keyword] || Number(foundValue) > Number(result[keyword]))){
+                        // Special handling for "2 Dips" - multiply by 2
+                        if(keyword === "2 Dips") {
+                            foundValue = Number(foundValue) * 2;
+                        }
                         result[keyword] = foundValue;
                     }
                 }
@@ -515,7 +538,89 @@ function renderMenuMixTable(m1, m2){
     }
     
     html += '</tbody></table>';
+    
+    // Add calculations section
+    html += '<div style="margin-top: 20px;">';
+    html += '<div class="analysis-section">';
+    
+    // Upsell Analysis
+    html += '<div class="analysis-card">';
+    html += '<div class="analysis-title">Upsell Analysis</div>';
+    
+    const dayUpsell = calculateTotal(m1, upsellItems);
+    const mtdUpsell = calculateTotal(m2, upsellItems);
+    
+    html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+    html += '<tr><td><strong>Total Upsell</strong></td><td><strong>' + dayUpsell + '</strong></td><td><strong>' + mtdUpsell + '</strong></td></tr>';
+    
+    // Calculate per lakh using DSR sales data (DINE-IN + TAKEAWAY sales)
+    if(window.dsrData) {
+        const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
+        const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
+        const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
+        const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
+        
+        const dayTotalSales = dayDineInSales + dayTakeawaySales;
+        const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
+        
+        const dayUpsellPerLakh = dayTotalSales > 0 ? (dayUpsell / dayTotalSales * 100000).toFixed(2) : "N/A";
+        const mtdUpsellPerLakh = mtdTotalSales > 0 ? (mtdUpsell / mtdTotalSales * 100000).toFixed(2) : "N/A";
+        
+        html += '<tr><td>Dine-In Sales</td><td>₹' + dayDineInSales.toLocaleString() + '</td><td>₹' + mtdDineInSales.toLocaleString() + '</td></tr>';
+        html += '<tr><td>Takeaway Sales</td><td>₹' + dayTakeawaySales.toLocaleString() + '</td><td>₹' + mtdTakeawaySales.toLocaleString() + '</td></tr>';
+        html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
+        html += '<tr><td><strong>Upsell Per Lakh</strong></td><td><strong>' + dayUpsellPerLakh + '</strong></td><td><strong>' + mtdUpsellPerLakh + '</strong></td></tr>';
+    } else {
+        html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
+    }
+    
+    html += '</tbody></table></div>';
+    
+    // Dessert Analysis
+    html += '<div class="analysis-card">';
+    html += '<div class="analysis-title">Dessert Analysis</div>';
+    
+    const dayDessert = calculateTotal(m1, dessertItems);
+    const mtdDessert = calculateTotal(m2, dessertItems);
+    
+    html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+    html += '<tr><td><strong>Total Dessert</strong></td><td><strong>' + dayDessert + '</strong></td><td><strong>' + mtdDessert + '</strong></td></tr>';
+    
+    // Calculate dessert per lakh using DSR sales data
+    if(window.dsrData) {
+        const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
+        const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
+        const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
+        const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
+        
+        const dayTotalSales = dayDineInSales + dayTakeawaySales;
+        const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
+        
+        const dayDessertPerLakh = dayTotalSales > 0 ? (dayDessert / dayTotalSales * 100000).toFixed(2) : "N/A";
+        const mtdDessertPerLakh = mtdTotalSales > 0 ? (mtdDessert / mtdTotalSales * 100000).toFixed(2) : "N/A";
+        
+        html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
+        html += '<tr><td><strong>Dessert Per Lakh</strong></td><td><strong>' + dayDessertPerLakh + '</strong></td><td><strong>' + mtdDessertPerLakh + '</strong></td></tr>';
+    } else {
+        html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
+    }
+    
+    html += '</tbody></table></div>';
+    html += '</div></div>';
+    
     document.getElementById("menuTableWrap").innerHTML = html;
+}
+
+// Helper function to calculate totals
+function calculateTotal(data, items) {
+    let total = 0;
+    for(const item of items) {
+        const value = data[item];
+        if(value && !isNaN(Number(value))) {
+            total += Number(value);
+        }
+    }
+    return total;
 }
 
 // HS Report Processing Functions
