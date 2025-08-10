@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Day vs MTD Sales + Menu Mix Comparator</title>
+<title>Day vs MTD Sales + Menu Mix + HS Report Comparator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
     :root{
@@ -81,7 +81,7 @@
 
     .cards {
         width: 92%;
-        max-width: 1100px;
+        max-width: 1200px;
         display: grid;
         grid-template-columns: 1fr;
         gap: 18px;
@@ -148,6 +148,27 @@
         border-radius:6px;
     }
 
+    .analysis-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 10px;
+    }
+
+    .analysis-card {
+        background: rgba(0,255,128,0.02);
+        border: 1px solid rgba(0,255,128,0.1);
+        border-radius: 8px;
+        padding: 12px;
+    }
+
+    .analysis-title {
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-size: 15px;
+    }
+
     @keyframes fadeIn {
         from { opacity:0; transform: translateY(6px) }
         to { opacity:1; transform: translateY(0) }
@@ -155,45 +176,59 @@
 
     @media (max-width:900px){
         .upload-box{ justify-content:center; }
+        .analysis-section { grid-template-columns: 1fr; }
     }
 </style>
 </head>
 <body>
 
     <div style="text-align:center; max-width:900px;">
-        <h1>Day vs MTD Sales + Menu Mix Comparator</h1>
-        <p class="subtitle">Upload your DSR / MTD DSR and Menu Mix / MTD Menu Mix files. All processing runs in your browser.</p>
+        <h1>Day vs MTD Sales + Menu Mix + HS Report Comparator</h1>
+        <p class="subtitle">Upload your files for comprehensive sales analysis. All processing runs in your browser.</p>
     </div>
 
+    <!-- DSR Files -->
     <div class="upload-box">
         <div class="upload-section">
             <label for="file1">Upload DSR</label>
             <input type="file" id="file1" accept=".xlsx, .xls">
         </div>
-
         <div class="upload-section">
             <label for="file2">Upload MTD DSR</label>
             <input type="file" id="file2" accept=".xlsx, .xls">
         </div>
-
         <div style="display:flex; align-items:flex-end; gap:8px;">
             <button class="primary" onclick="compareDSR()">Compare DSR</button>
         </div>
     </div>
 
+    <!-- Menu Mix Files -->
     <div class="upload-box" style="margin-top:6px;">
         <div class="upload-section">
             <label for="file3">Upload Menu Mix</label>
             <input type="file" id="file3" accept=".xlsx, .xls">
         </div>
-
         <div class="upload-section">
             <label for="file4">Upload MTD Menu Mix</label>
             <input type="file" id="file4" accept=".xlsx, .xls">
         </div>
-
         <div style="display:flex; align-items:flex-end; gap:8px;">
             <button class="primary" onclick="processMenuMix()">Process Menu Mix</button>
+        </div>
+    </div>
+
+    <!-- HS Report Files -->
+    <div class="upload-box" style="margin-top:6px;">
+        <div class="upload-section">
+            <label for="file5">Upload HS Report</label>
+            <input type="file" id="file5" accept=".xlsx, .xls">
+        </div>
+        <div class="upload-section">
+            <label for="file6">Upload HS Report MTD</label>
+            <input type="file" id="file6" accept=".xlsx, .xls">
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:8px;">
+            <button class="primary" onclick="processHSReport()">Process HS Report</button>
         </div>
     </div>
 
@@ -225,6 +260,20 @@
                 </div>
             </div>
             <div id="menuTableWrap"></div>
+        </div>
+
+        <!-- HS Report Analysis Card -->
+        <div class="card" id="hsCard" style="display:none;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">HS Report Analysis</div>
+                    <div class="small-note">Order Source and Sales Type breakdown from HS Reports</div>
+                </div>
+                <div class="card-controls">
+                    <button class="download-btn" onclick="downloadHSAnalysis()">Export Analysis</button>
+                </div>
+            </div>
+            <div id="hsAnalysisWrap"></div>
         </div>
     </div>
 
@@ -258,8 +307,13 @@ const menuKeywords = [
     "MAYO EGGLES"
 ];
 
+// Order Source and Sales Type keywords for HS Report
+const orderSources = ["SWIGGY", "ZOMATO", "KIOSK", "APP", "MAGICPIN", "WEB"];
+const salesTypes = ["DELIVERY", "DINE-IN", "TAKEAWAY"];
+
 let menuMixResult1 = null;
 let menuMixResult2 = null;
+let hsReportData = null;
 
 // Helper functions
 function readWorkbookFromFile(file) {
@@ -384,11 +438,6 @@ function extractMenuItemsFromSheet(sheet){
                 const isMatch = cellText.toLowerCase().includes(keyword.toLowerCase());
                 
                 if(isMatch){
-                    // Debug logging for CHEESE
-                    if(keyword.toLowerCase() === "cheese"){
-                        console.log("Found CHEESE at row " + rowIdx + ", col " + colIdx + ": " + cellText);
-                    }
-                    
                     let foundValue = "";
                     let searchResults = [];
                     
@@ -434,18 +483,10 @@ function extractMenuItemsFromSheet(sheet){
                         }
                     }
                     
-                    if(keyword.toLowerCase() === "cheese"){
-                        console.log("CHEESE search results:", searchResults);
-                    }
-                    
                     // Pick the highest value found
                     if(searchResults.length > 0){
                         searchResults.sort(function(a, b){ return b.value - a.value; });
                         foundValue = searchResults[0].value;
-                        
-                        if(keyword.toLowerCase() === "cheese"){
-                            console.log("Selected CHEESE value: " + foundValue + " from " + searchResults[0].direction);
-                        }
                     }
                     
                     // Only update if we found a better value
@@ -475,6 +516,161 @@ function renderMenuMixTable(m1, m2){
     
     html += '</tbody></table>';
     document.getElementById("menuTableWrap").innerHTML = html;
+}
+
+// HS Report Processing Functions
+async function processHSReport(){
+    const f5 = document.getElementById("file5").files[0];
+    const f6 = document.getElementById("file6").files[0];
+    if(!f5 || !f6){ 
+        alert("Please upload both HS Report and HS Report MTD files."); 
+        return; 
+    }
+
+    try {
+        const [wb5, wb6] = await Promise.all([readWorkbookFromFile(f5), readWorkbookFromFile(f6)]);
+        const sheet5 = wb5.Sheets[wb5.SheetNames[0]];
+        const sheet6 = wb6.Sheets[wb6.SheetNames[0]];
+
+        const hsData1 = analyzeHSReport(sheet5, "Day");
+        const hsData2 = analyzeHSReport(sheet6, "MTD");
+
+        hsReportData = { day: hsData1, mtd: hsData2 };
+        renderHSAnalysis(hsData1, hsData2);
+        document.getElementById("hsCard").style.display = "block";
+    } catch (error) {
+        alert("Error processing HS Report files: " + error.message);
+        console.error(error);
+    }
+}
+
+function analyzeHSReport(sheet, period) {
+    const data2d = sheetTo2DArray(sheet);
+    const analysis = {
+        period: period,
+        orderSources: {},
+        salesTypes: {},
+        orderSourceBreakdown: {}
+    };
+
+    // Initialize counters
+    orderSources.forEach(source => {
+        analysis.orderSources[source] = 0;
+        analysis.orderSourceBreakdown[source] = {
+            DELIVERY: 0,
+            "DINE-IN": 0,
+            TAKEAWAY: 0
+        };
+    });
+    salesTypes.forEach(type => analysis.salesTypes[type] = 0);
+
+    // Find column headers
+    let orderSourceCol = -1;
+    let salesTypeCol = -1;
+    let headerRow = -1;
+
+    // Search for header row and column indices
+    for(let rowIdx = 0; rowIdx < Math.min(10, data2d.length); rowIdx++) {
+        const row = data2d[rowIdx];
+        if(!row) continue;
+        
+        for(let colIdx = 0; colIdx < row.length; colIdx++) {
+            const cellText = String(row[colIdx] || "").trim().toLowerCase();
+            
+            if(cellText.includes("order") && cellText.includes("source")) {
+                orderSourceCol = colIdx;
+                headerRow = rowIdx;
+            }
+            if(cellText.includes("sales") && cellText.includes("type")) {
+                salesTypeCol = colIdx;
+                headerRow = rowIdx;
+            }
+        }
+    }
+
+    console.log(`Found headers at row ${headerRow}: Order Source col ${orderSourceCol}, Sales Type col ${salesTypeCol}`);
+
+    // Count occurrences and cross-reference
+    if(headerRow >= 0) {
+        for(let rowIdx = headerRow + 1; rowIdx < data2d.length; rowIdx++) {
+            const row = data2d[rowIdx];
+            if(!row) continue;
+
+            const orderSource = String(row[orderSourceCol] || "").trim().toUpperCase();
+            const salesType = String(row[salesTypeCol] || "").trim().toUpperCase();
+
+            // Count Order Sources
+            if(orderSourceCol >= 0 && orderSourceCol < row.length) {
+                orderSources.forEach(source => {
+                    if(orderSource.includes(source)) {
+                        analysis.orderSources[source]++;
+                        
+                        // Cross-reference with sales type for breakdown
+                        if(salesTypeCol >= 0 && salesTypeCol < row.length) {
+                            salesTypes.forEach(type => {
+                                if(salesType.includes(type)) {
+                                    analysis.orderSourceBreakdown[source][type]++;
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Count Sales Types
+            if(salesTypeCol >= 0 && salesTypeCol < row.length) {
+                salesTypes.forEach(type => {
+                    if(salesType.includes(type)) {
+                        analysis.salesTypes[type]++;
+                    }
+                });
+            }
+        }
+    }
+
+    return analysis;
+}
+
+function renderHSAnalysis(hsData1, hsData2) {
+    let html = '<div class="analysis-section">';
+    
+    // Order Sources Analysis with Breakdown
+    html += '<div class="analysis-card">';
+    html += '<div class="analysis-title">Order Source Breakdown</div>';
+    html += '<table><thead><tr><th>Order Source</th><th>Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
+    
+    orderSources.forEach(source => {
+        const dayTotal = hsData1.orderSources[source] || 0;
+        const mtdTotal = hsData2.orderSources[source] || 0;
+        
+        // Total row for each source
+        html += `<tr style="background: rgba(255,64,64,0.05);"><td><strong>${source}</strong></td><td><strong>TOTAL</strong></td><td><strong>${dayTotal}</strong></td><td><strong>${mtdTotal}</strong></td></tr>`;
+        
+        // Breakdown by sales type
+        salesTypes.forEach(type => {
+            const dayCount = hsData1.orderSourceBreakdown[source][type] || 0;
+            const mtdCount = hsData2.orderSourceBreakdown[source][type] || 0;
+            html += `<tr><td></td><td style="padding-left: 20px; color: #9fffc4;">${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
+        });
+    });
+    
+    html += '</tbody></table></div>';
+
+    // Sales Types Analysis (Overall)
+    html += '<div class="analysis-card">';
+    html += '<div class="analysis-title">Overall Sales Type Breakdown</div>';
+    html += '<table><thead><tr><th>Sales Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
+    
+    salesTypes.forEach(type => {
+        const dayCount = hsData1.salesTypes[type] || 0;
+        const mtdCount = hsData2.salesTypes[type] || 0;
+        html += `<tr><td>${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
+    });
+    
+    html += '</tbody></table></div>';
+    html += '</div>';
+
+    document.getElementById("hsAnalysisWrap").innerHTML = html;
 }
 
 // Download Functions
@@ -526,6 +722,52 @@ function downloadDSRComparison(){
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DSR_Comparison");
     XLSX.writeFile(wb, "DSR_Comparison.xlsx");
+}
+
+function downloadHSAnalysis(){
+    if(!hsReportData){ 
+        alert("No HS Report analysis to export."); 
+        return; 
+    }
+
+    const rows = [];
+    
+    // Order Sources with Breakdown
+    rows.push(["Order Source Detailed Analysis"]);
+    rows.push(["Order Source", "Sales Type", "Day Count", "MTD Count"]);
+    
+    orderSources.forEach(source => {
+        const dayTotal = hsReportData.day.orderSources[source] || 0;
+        const mtdTotal = hsReportData.mtd.orderSources[source] || 0;
+        
+        // Total row
+        rows.push([source, "TOTAL", dayTotal, mtdTotal]);
+        
+        // Breakdown rows
+        salesTypes.forEach(type => {
+            const dayCount = hsReportData.day.orderSourceBreakdown[source][type] || 0;
+            const mtdCount = hsReportData.mtd.orderSourceBreakdown[source][type] || 0;
+            rows.push(["", type, dayCount, mtdCount]);
+        });
+        
+        rows.push([""]);  // Empty row for separation
+    });
+    
+    rows.push([""]);
+    
+    // Overall Sales Types
+    rows.push(["Overall Sales Type Analysis"]);
+    rows.push(["Sales Type", "", "Day Count", "MTD Count"]);
+    salesTypes.forEach(type => {
+        const dayCount = hsReportData.day.salesTypes[type] || 0;
+        const mtdCount = hsReportData.mtd.salesTypes[type] || 0;
+        rows.push([type, "", dayCount, mtdCount]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "HS_Report_Analysis");
+    XLSX.writeFile(wb, "HS_Report_Detailed_Analysis.xlsx");
 }
 
 // Utility Functions
