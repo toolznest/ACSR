@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Day vs MTD Sales + Menu Mix + HS Report Comparator</title>
+<title>Day vs MTD Sales + Menu Mix + HS Report + LnD Comparator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
     :root{
@@ -11,6 +11,7 @@
         --neon: #00ff80;
         --accent: #ff4040;
         --muted: #333;
+        --purple: #8a2be2;
     }
     html,body{height:100%; margin:0;}
     body {
@@ -53,6 +54,9 @@
         margin-bottom:4px;
         font-size:13px;
     }
+    label.lnd {
+        color: var(--purple);
+    }
     input[type="file"] {
         background-color: var(--panel);
         border: 1px solid var(--neon);
@@ -60,6 +64,9 @@
         padding: 8px 10px;
         border-radius: 6px;
         font-size: 13px;
+    }
+    input[type="file"].lnd {
+        border-color: var(--purple);
     }
     button {
         background-color: var(--panel);
@@ -74,9 +81,18 @@
         background: linear-gradient(90deg, rgba(0,255,128,0.06), rgba(0,255,128,0.02));
         box-shadow: 0 0 10px rgba(0,255,128,0.08);
     }
+    button.lnd {
+        border-color: var(--purple);
+        background: linear-gradient(90deg, rgba(138,43,226,0.06), rgba(138,43,226,0.02));
+        box-shadow: 0 0 10px rgba(138,43,226,0.08);
+        color: var(--purple);
+    }
     button:hover {
         transform: translateY(-2px);
         box-shadow: 0 0 18px rgba(0,255,128,0.12);
+    }
+    button.lnd:hover {
+        box-shadow: 0 0 18px rgba(138,43,226,0.12);
     }
 
     .cards {
@@ -97,6 +113,11 @@
         animation: fadeIn 550ms ease-out;
     }
 
+    .card.lnd {
+        box-shadow: 0 0 18px rgba(138,43,226,0.07);
+        border: 1px solid rgba(138,43,226,0.06);
+    }
+
     .card-head {
         display:flex;
         justify-content:space-between;
@@ -108,6 +129,10 @@
         color: var(--accent);
         font-weight:700;
         text-shadow: 0 0 6px rgba(255,64,64,0.08);
+    }
+    .card-title.lnd {
+        color: var(--purple);
+        text-shadow: 0 0 6px rgba(138,43,226,0.08);
     }
     .card-controls { display:flex; gap:8px; align-items:center; }
 
@@ -129,6 +154,9 @@
         font-weight:700;
         font-size:14px;
     }
+    th.lnd {
+        background: var(--purple);
+    }
     td {
         color: var(--neon);
         border-top: 1px solid rgba(255,255,255,0.04);
@@ -146,6 +174,11 @@
         color: var(--neon);
         padding: 6px 10px;
         border-radius:6px;
+    }
+
+    .download-btn.lnd {
+        border-color: rgba(138,43,226,0.18);
+        color: var(--purple);
     }
 
     .analysis-section {
@@ -169,6 +202,15 @@
         font-size: 15px;
     }
 
+    .time-slot {
+        background: rgba(138,43,226,0.08);
+        border-radius: 4px;
+        padding: 4px 8px;
+        margin: 2px 0;
+        font-weight: 600;
+        color: var(--purple);
+    }
+
     @keyframes fadeIn {
         from { opacity:0; transform: translateY(6px) }
         to { opacity:1; transform: translateY(0) }
@@ -183,7 +225,7 @@
 <body>
 
     <div style="text-align:center; max-width:900px;">
-        <h1>Day vs MTD Sales + Menu Mix + HS Report Comparator</h1>
+        <h1>Day vs MTD Sales + Menu Mix + HS Report + LnD Comparator</h1>
         <p class="subtitle">Upload your files for comprehensive sales analysis. All processing runs in your browser.</p>
     </div>
 
@@ -232,6 +274,21 @@
         </div>
     </div>
 
+    <!-- LnD Files -->
+    <div class="upload-box" style="margin-top:6px;">
+        <div class="upload-section">
+            <label for="file7" class="lnd">Upload LnD</label>
+            <input type="file" id="file7" accept=".xlsx, .xls" class="lnd">
+        </div>
+        <div class="upload-section">
+            <label for="file8" class="lnd">Upload MTD LnD</label>
+            <input type="file" id="file8" accept=".xlsx, .xls" class="lnd">
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:8px;">
+            <button class="primary lnd" onclick="processLnD()">Process LnD</button>
+        </div>
+    </div>
+
     <div class="cards">
         <!-- DSR Comparison Card -->
         <div class="card" id="dsrCard" style="display:none;">
@@ -275,615 +332,935 @@
             </div>
             <div id="hsAnalysisWrap"></div>
         </div>
+
+        <!-- LnD Analysis Card -->
+        <div class="card lnd" id="lndCard" style="display:none;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title lnd">Late Night Delivery (LnD) Analysis</div>
+                    <div class="small-note">Hourly breakdown: 00:00-01:00, 01:00-02:00, 02:00-03:00, 23:00-Midnight</div>
+                </div>
+                <div class="card-controls">
+                    <button class="download-btn lnd" onclick="downloadLnDAnalysis()">Export LnD Analysis</button>
+                </div>
+            </div>
+            <div id="lndAnalysisWrap"></div>
+        </div>
     </div>
 
 <script>
-// Keywords for DSR extraction
 const keywords = [
-    "Net Sales",
-    "Total No.of Orders",
-    "No. of Orders in DELIVERY",
-    "No. of Orders in DINE-IN",
-    "No. of Orders in TAKEAWAY",
-    "DELIVERY",
-    "DINE-IN",
-    "TAKEAWAY",
-    "Total Sales"
+   "Net Sales",
+   "Total No.of Orders",
+   "No. of Orders in DELIVERY",
+   "No. of Orders in DINE-IN",
+   "No. of Orders in TAKEAWAY",
+   "DELIVERY",
+   "DINE-IN",
+   "TAKEAWAY",
+   "Total Sales"
 ];
 
 // Menu Mix Keywords with categories
 const menuKeywords = [
-    "Tandoori Masala dip",
-    "Dynamite Spicy Mayo Dip", 
-    "Nashville Hot Pepper Dip",
-    "Choco Mud Pie",
-    "Coffee Mousse Cake",
-    "Choclate Lava Cake",
-    "ADDON REG FRIES & PEPSI",
-    "FRIES+ PEPSI ADDON-MED.",
-    "ADDON MED FRIES & PEPSI",
-    "ADDON LRG FRIES & PEPSI",
-    "CHEESE",
-    "MAYO EGGLES",
-    "2 Dips"
+   "Tandoori Masala dip",
+   "Dynamite Spicy Mayo Dip", 
+   "Nashville Hot Pepper Dip",
+   "Choco Mud Pie",
+   "Coffee Mousse Cake",
+   "Choclate Lava Cake",
+   "ADDON REG FRIES & PEPSI",
+   "FRIES+ PEPSI ADDON-MED.",
+   "ADDON MED FRIES & PEPSI",
+   "ADDON LRG FRIES & PEPSI",
+   "CHEESE",
+   "MAYO EGGLES",
+   "2 Dips"
 ];
 
 // Categories for calculations
 const upsellItems = [
-    "CHEESE", "MAYO EGGLES", "2 Dips", "Tandoori Masala dip", 
-    "Dynamite Spicy Mayo Dip", "Nashville Hot Pepper Dip", 
-    "ADDON REG FRIES & PEPSI", "FRIES+ PEPSI ADDON-MED.", 
-    "ADDON MED FRIES & PEPSI", "ADDON LRG FRIES & PEPSI"
+   "CHEESE", "MAYO EGGLES", "2 Dips", "Tandoori Masala dip", 
+   "Dynamite Spicy Mayo Dip", "Nashville Hot Pepper Dip", 
+   "ADDON REG FRIES & PEPSI", "FRIES+ PEPSI ADDON-MED.", 
+   "ADDON MED FRIES & PEPSI", "ADDON LRG FRIES & PEPSI"
 ];
 
 const dessertItems = [
-    "Choco Mud Pie", "Coffee Mousse Cake", "Choclate Lava Cake"
+   "Choco Mud Pie", "Coffee Mousse Cake", "Choclate Lava Cake"
 ];
 
 // Order Source and Sales Type keywords for HS Report
 const orderSources = ["SWIGGY", "ZOMATO", "KIOSK", "APP", "MAGICPIN", "WEB"];
 const salesTypes = ["DELIVERY", "DINE-IN", "TAKEAWAY"];
 
+// LnD Time slots
+const lndTimeSlots = [
+   "00:00-01:00",
+   "01:00-02:00", 
+   "02:00-03:00",
+   "23:00-Midnight"
+];
+
 let menuMixResult1 = null;
 let menuMixResult2 = null;
 let hsReportData = null;
+let lndData = null;
 
 // Helper functions
 function readWorkbookFromFile(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const wb = XLSX.read(data, { type: 'array' });
-                resolve(wb);
-            } catch (err) {
-                reject(err);
-            }
-        };
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-    });
+   return new Promise((resolve, reject) => {
+       const reader = new FileReader();
+       reader.onload = (e) => {
+           try {
+               const data = new Uint8Array(e.target.result);
+               const wb = XLSX.read(data, { type: 'array' });
+               resolve(wb);
+           } catch (err) {
+               reject(err);
+           }
+       };
+       reader.onerror = reject;
+       reader.readAsArrayBuffer(file);
+   });
 }
 
 function sheetTo2DArray(sheet) {
-    return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+   return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
 }
 
 // DSR Comparison Functions
 async function compareDSR(){
-    const f1 = document.getElementById("file1").files[0];
-    const f2 = document.getElementById("file2").files[0];
-    if(!f1 || !f2){ 
-        alert("Please upload both DSR and MTD DSR files."); 
-        return; 
-    }
+   const f1 = document.getElementById("file1").files[0];
+   const f2 = document.getElementById("file2").files[0];
+   if(!f1 || !f2){ 
+       alert("Please upload both DSR and MTD DSR files."); 
+       return; 
+   }
 
-    try {
-        const [wb1, wb2] = await Promise.all([readWorkbookFromFile(f1), readWorkbookFromFile(f2)]);
-        const sheet1 = wb1.Sheets[wb1.SheetNames[0]];
-        const sheet2 = wb2.Sheets[wb2.SheetNames[0]];
-        const data1 = sheetTo2DArray(sheet1);
-        const data2 = sheetTo2DArray(sheet2);
+   try {
+       const [wb1, wb2] = await Promise.all([readWorkbookFromFile(f1), readWorkbookFromFile(f2)]);
+       const sheet1 = wb1.Sheets[wb1.SheetNames[0]];
+       const sheet2 = wb2.Sheets[wb2.SheetNames[0]];
+       const data1 = sheetTo2DArray(sheet1);
+       const data2 = sheetTo2DArray(sheet2);
 
-        const extracted1 = extractFrom2D(data1);
-        const extracted2 = extractFrom2D(data2);
+       const extracted1 = extractFrom2D(data1);
+       const extracted2 = extractFrom2D(data2);
 
-        renderDSRTable(extracted1, extracted2);
-        document.getElementById("dsrCard").style.display = "block";
-    } catch (error) {
-        alert("Error processing DSR files: " + error.message);
-        console.error(error);
-    }
+       renderDSRTable(extracted1, extracted2);
+       document.getElementById("dsrCard").style.display = "block";
+   } catch (error) {
+       alert("Error processing DSR files: " + error.message);
+       console.error(error);
+   }
 }
 
 function extractFrom2D(arr2d){
-    const result = {};
-    for(const row of arr2d){
-        if(!row || row.length < 2) continue;
-        const key = String(row[0]).trim();
-        const val = row[1];
-        if(keywords.includes(key)) {
-            result[key] = val;
-        }
-    }
-    return result;
+   const result = {};
+   for(const row of arr2d){
+       if(!row || row.length < 2) continue;
+       const key = String(row[0]).trim();
+       const val = row[1];
+       if(keywords.includes(key)) {
+           result[key] = val;
+       }
+   }
+   return result;
 }
 
 function renderDSRTable(d1, d2){
-    let html = '<table><thead><tr><th>Field</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
-    for(const k of keywords){
-        const v1 = (d1[k] !== undefined && d1[k] !== null) ? d1[k] : "";
-        const v2 = (d2[k] !== undefined && d2[k] !== null) ? d2[k] : "";
-        html += '<tr><td>' + k + '</td><td>' + escapeHtml(v1) + '</td><td>' + escapeHtml(v2) + '</td></tr>';
-    }
-    html += '</tbody></table>';
-    document.getElementById("dsrTableWrap").innerHTML = html;
-    
-    // Store DSR data globally for use in menu mix calculations
-    window.dsrData = {
-        day: d1,
-        mtd: d2
-    };
+   let html = '<table><thead><tr><th>Field</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+   for(const k of keywords){
+       const v1 = (d1[k] !== undefined && d1[k] !== null) ? d1[k] : "";
+       const v2 = (d2[k] !== undefined && d2[k] !== null) ? d2[k] : "";
+       html += '<tr><td>' + k + '</td><td>' + escapeHtml(v1) + '</td><td>' + escapeHtml(v2) + '</td></tr>';
+   }
+   html += '</tbody></table>';
+   document.getElementById("dsrTableWrap").innerHTML = html;
+   
+   // Store DSR data globally for use in menu mix calculations
+   window.dsrData = {
+       day: d1,
+       mtd: d2
+   };
 }
 
 // Menu Mix Processing Functions
 async function processMenuMix(){
-    const f3 = document.getElementById("file3").files[0];
-    const f4 = document.getElementById("file4").files[0];
-    if(!f3 || !f4){ 
-        alert("Please upload both Menu Mix and MTD Menu Mix files."); 
-        return; 
-    }
+   const f3 = document.getElementById("file3").files[0];
+   const f4 = document.getElementById("file4").files[0];
+   if(!f3 || !f4){ 
+       alert("Please upload both Menu Mix and MTD Menu Mix files."); 
+       return; 
+   }
 
-    try {
-        const [wb3, wb4] = await Promise.all([readWorkbookFromFile(f3), readWorkbookFromFile(f4)]);
-        const sheet3 = wb3.Sheets[wb3.SheetNames[0]];
-        const sheet4 = wb4.Sheets[wb4.SheetNames[0]];
+   try {
+       const [wb3, wb4] = await Promise.all([readWorkbookFromFile(f3), readWorkbookFromFile(f4)]);
+       const sheet3 = wb3.Sheets[wb3.SheetNames[0]];
+       const sheet4 = wb4.Sheets[wb4.SheetNames[0]];
 
-        menuMixResult1 = extractMenuItemsFromSheet(sheet3);
-        menuMixResult2 = extractMenuItemsFromSheet(sheet4);
+       menuMixResult1 = extractMenuItemsFromSheet(sheet3);
+       menuMixResult2 = extractMenuItemsFromSheet(sheet4);
 
-        renderMenuMixTable(menuMixResult1, menuMixResult2);
-        document.getElementById("menuCard").style.display = "block";
-    } catch (error) {
-        alert("Error processing Menu Mix files: " + error.message);
-        console.error(error);
-    }
+       renderMenuMixTable(menuMixResult1, menuMixResult2);
+       document.getElementById("menuCard").style.display = "block";
+   } catch (error) {
+       alert("Error processing Menu Mix files: " + error.message);
+       console.error(error);
+   }
 }
 
 function extractMenuItemsFromSheet(sheet){
-    const result = {};
-    const data2d = sheetTo2DArray(sheet);
-    
-    // Initialize all keywords with empty values
-    for(const keyword of menuKeywords){
-        result[keyword] = "";
-    }
-    
-    // Search through all rows and columns for keywords
-    for(let rowIdx = 0; rowIdx < data2d.length; rowIdx++){
-        const row = data2d[rowIdx];
-        if(!row) continue;
-        
-        for(let colIdx = 0; colIdx < row.length; colIdx++){
-            const cellValue = row[colIdx];
-            if(!cellValue) continue;
-            
-            const cellText = String(cellValue).trim();
-            
-            // Check if this cell contains any of our keywords
-            for(const keyword of menuKeywords){
-                const isMatch = cellText.toLowerCase().includes(keyword.toLowerCase());
-                
-                if(isMatch){
-                    let foundValue = "";
-                    let searchResults = [];
-                    
-                    // Check right (1-4 columns)
-                    for(let offset = 1; offset <= 4; offset++){
-                        if(colIdx + offset < row.length){
-                            const val = row[colIdx + offset];
-                            if(val !== undefined && val !== null){
-                                const numVal = Number(val);
-                                if(!isNaN(numVal) && String(val).trim() !== ""){
-                                    searchResults.push({direction: "right+" + offset, value: numVal});
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Check left (1-3 columns)
-                    for(let offset = 1; offset <= 3; offset++){
-                        if(colIdx - offset >= 0){
-                            const val = row[colIdx - offset];
-                            if(val !== undefined && val !== null){
-                                const numVal = Number(val);
-                                if(!isNaN(numVal) && String(val).trim() !== ""){
-                                    searchResults.push({direction: "left+" + offset, value: numVal});
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Check below (1-2 rows)
-                    for(let offset = 1; offset <= 2; offset++){
-                        if(rowIdx + offset < data2d.length){
-                            const nextRow = data2d[rowIdx + offset];
-                            if(nextRow && colIdx < nextRow.length){
-                                const val = nextRow[colIdx];
-                                if(val !== undefined && val !== null){
-                                    const numVal = Number(val);
-                                    if(!isNaN(numVal) && String(val).trim() !== ""){
-                                        searchResults.push({direction: "below+" + offset, value: numVal});
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Pick the highest value found
-                    if(searchResults.length > 0){
-                        searchResults.sort(function(a, b){ return b.value - a.value; });
-                        foundValue = searchResults[0].value;
-                    }
-                    
-                    // Only update if we found a better value
-                    if(foundValue && (!result[keyword] || Number(foundValue) > Number(result[keyword]))){
-                        // Special handling for "2 Dips" - multiply by 2
-                        if(keyword === "2 Dips") {
-                            foundValue = Number(foundValue) * 2;
-                        }
-                        result[keyword] = foundValue;
-                    }
-                }
-            }
-        }
-    }
-    
-    return result;
+   const result = {};
+   const data2d = sheetTo2DArray(sheet);
+   
+   // Initialize all keywords with empty values
+   for(const keyword of menuKeywords){
+       result[keyword] = "";
+   }
+   
+   // Search through all rows and columns for keywords
+   for(let rowIdx = 0; rowIdx < data2d.length; rowIdx++){
+       const row = data2d[rowIdx];
+       if(!row) continue;
+       
+       for(let colIdx = 0; colIdx < row.length; colIdx++){
+           const cellValue = row[colIdx];
+           if(!cellValue) continue;
+           
+           const cellText = String(cellValue).trim();
+           
+           // Check if this cell contains any of our keywords
+           for(const keyword of menuKeywords){
+               const isMatch = cellText.toLowerCase().includes(keyword.toLowerCase());
+               
+               if(isMatch){
+                   let foundValue = "";
+                   let searchResults = [];
+                   
+                   // Check right (1-4 columns)
+                   for(let offset = 1; offset <= 4; offset++){
+                       if(colIdx + offset < row.length){
+                           const val = row[colIdx + offset];
+                           if(val !== undefined && val !== null){
+                               const numVal = Number(val);
+                               if(!isNaN(numVal) && String(val).trim() !== ""){
+                                   searchResults.push({direction: "right+" + offset, value: numVal});
+                               }
+                           }
+                       }
+                   }
+                   
+                   // Check left (1-3 columns)
+                   for(let offset = 1; offset <= 3; offset++){
+                       if(colIdx - offset >= 0){
+                           const val = row[colIdx - offset];
+                           if(val !== undefined && val !== null){
+                               const numVal = Number(val);
+                               if(!isNaN(numVal) && String(val).trim() !== ""){
+                                   searchResults.push({direction: "left+" + offset, value: numVal});
+                               }
+                           }
+                       }
+                   }
+                   
+                   // Check below (1-2 rows)
+                   for(let offset = 1; offset <= 2; offset++){
+                       if(rowIdx + offset < data2d.length){
+                           const nextRow = data2d[rowIdx + offset];
+                           if(nextRow && colIdx < nextRow.length){
+                               const val = nextRow[colIdx];
+                               if(val !== undefined && val !== null){
+                                   const numVal = Number(val);
+                                   if(!isNaN(numVal) && String(val).trim() !== ""){
+                                       searchResults.push({direction: "below+" + offset, value: numVal});
+                                   }
+                               }
+                           }
+                       }
+                   }
+                   
+                   // Pick the highest value found
+                   if(searchResults.length > 0){
+                       searchResults.sort(function(a, b){ return b.value - a.value; });
+                       foundValue = searchResults[0].value;
+                   }
+                   
+                   // Only update if we found a better value
+                   if(foundValue && (!result[keyword] || Number(foundValue) > Number(result[keyword]))){
+                       // Special handling for "2 Dips" - multiply by 2
+                       if(keyword === "2 Dips") {
+                           foundValue = Number(foundValue) * 2;
+                       }
+                       result[keyword] = foundValue;
+                   }
+               }
+           }
+       }
+   }
+   
+   return result;
 }
 
 function renderMenuMixTable(m1, m2){
-    let html = '<table><thead><tr><th>Item Name</th><th>Day Quantity</th><th>MTD Quantity</th></tr></thead><tbody>';
-    
-    for(const keyword of menuKeywords){
-        const dayQty = m1[keyword] || "";
-        const mtdQty = m2[keyword] || "";
-        
-        const dayCell = dayQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(dayQty);
-        const mtdCell = mtdQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(mtdQty);
-        
-        html += '<tr><td>' + keyword + '</td><td>' + dayCell + '</td><td>' + mtdCell + '</td></tr>';
-    }
-    
-    html += '</tbody></table>';
-    
-    // Add calculations section
-    html += '<div style="margin-top: 20px;">';
-    html += '<div class="analysis-section">';
-    
-    // Upsell Analysis
-    html += '<div class="analysis-card">';
-    html += '<div class="analysis-title">Upsell Analysis</div>';
-    
-    const dayUpsell = calculateTotal(m1, upsellItems);
-    const mtdUpsell = calculateTotal(m2, upsellItems);
-    
-    html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
-    html += '<tr><td><strong>Total Upsell</strong></td><td><strong>' + dayUpsell + '</strong></td><td><strong>' + mtdUpsell + '</strong></td></tr>';
-    
-    // Calculate per lakh using DSR sales data (DINE-IN + TAKEAWAY sales)
-    if(window.dsrData) {
-        const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
-        const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
-        const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
-        const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
-        
-        const dayTotalSales = dayDineInSales + dayTakeawaySales;
-        const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
-        
-        const dayUpsellPerLakh = dayTotalSales > 0 ? (dayUpsell / dayTotalSales * 100000).toFixed(2) : "N/A";
-        const mtdUpsellPerLakh = mtdTotalSales > 0 ? (mtdUpsell / mtdTotalSales * 100000).toFixed(2) : "N/A";
-        
-        html += '<tr><td>Dine-In Sales</td><td>₹' + dayDineInSales.toLocaleString() + '</td><td>₹' + mtdDineInSales.toLocaleString() + '</td></tr>';
-        html += '<tr><td>Takeaway Sales</td><td>₹' + dayTakeawaySales.toLocaleString() + '</td><td>₹' + mtdTakeawaySales.toLocaleString() + '</td></tr>';
-        html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
-        html += '<tr><td><strong>Upsell Per Lakh</strong></td><td><strong>' + dayUpsellPerLakh + '</strong></td><td><strong>' + mtdUpsellPerLakh + '</strong></td></tr>';
-    } else {
-        html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
-    }
-    
-    html += '</tbody></table></div>';
-    
-    // Dessert Analysis
-    html += '<div class="analysis-card">';
-    html += '<div class="analysis-title">Dessert Analysis</div>';
-    
-    const dayDessert = calculateTotal(m1, dessertItems);
-    const mtdDessert = calculateTotal(m2, dessertItems);
-    
-    html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
-    html += '<tr><td><strong>Total Dessert</strong></td><td><strong>' + dayDessert + '</strong></td><td><strong>' + mtdDessert + '</strong></td></tr>';
-    
-    // Calculate dessert per lakh using DSR sales data
-    if(window.dsrData) {
-        const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
-        const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
-        const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
-        const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
-        
-        const dayTotalSales = dayDineInSales + dayTakeawaySales;
-        const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
-        
-        const dayDessertPerLakh = dayTotalSales > 0 ? (dayDessert / dayTotalSales * 100000).toFixed(2) : "N/A";
-        const mtdDessertPerLakh = mtdTotalSales > 0 ? (mtdDessert / mtdTotalSales * 100000).toFixed(2) : "N/A";
-        
-        html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
-        html += '<tr><td><strong>Dessert Per Lakh</strong></td><td><strong>' + dayDessertPerLakh + '</strong></td><td><strong>' + mtdDessertPerLakh + '</strong></td></tr>';
-    } else {
-        html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
-    }
-    
-    html += '</tbody></table></div>';
-    html += '</div></div>';
-    
-    document.getElementById("menuTableWrap").innerHTML = html;
+   let html = '<table><thead><tr><th>Item Name</th><th>Day Quantity</th><th>MTD Quantity</th></tr></thead><tbody>';
+   
+   for(const keyword of menuKeywords){
+       const dayQty = m1[keyword] || "";
+       const mtdQty = m2[keyword] || "";
+       
+       const dayCell = dayQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(dayQty);
+       const mtdCell = mtdQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(mtdQty);
+       
+       html += '<tr><td>' + keyword + '</td><td>' + dayCell + '</td><td>' + mtdCell + '</td></tr>';
+   }
+   
+   html += '</tbody></table>';
+   
+   // Add calculations section
+   html += '<div style="margin-top: 20px;">';
+   html += '<div class="analysis-section">';
+   
+   // Upsell Analysis
+   html += '<div class="analysis-card">';
+   html += '<div class="analysis-title">Upsell Analysis</div>';
+   
+   const dayUpsell = calculateTotal(m1, upsellItems);
+   const mtdUpsell = calculateTotal(m2, upsellItems);
+   
+   html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+   html += '<tr><td><strong>Total Upsell</strong></td><td><strong>' + dayUpsell + '</strong></td><td><strong>' + mtdUpsell + '</strong></td></tr>';
+   
+   // Calculate per lakh using DSR sales data (DINE-IN + TAKEAWAY sales)
+   if(window.dsrData) {
+       const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
+       const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
+       const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
+       const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
+       
+       const dayTotalSales = dayDineInSales + dayTakeawaySales;
+       const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
+       
+       const dayUpsellPerLakh = dayTotalSales > 0 ? (dayUpsell / dayTotalSales * 100000).toFixed(2) : "N/A";
+       const mtdUpsellPerLakh = mtdTotalSales > 0 ? (mtdUpsell / mtdTotalSales * 100000).toFixed(2) : "N/A";
+       
+       html += '<tr><td>Dine-In Sales</td><td>₹' + dayDineInSales.toLocaleString() + '</td><td>₹' + mtdDineInSales.toLocaleString() + '</td></tr>';
+       html += '<tr><td>Takeaway Sales</td><td>₹' + dayTakeawaySales.toLocaleString() + '</td><td>₹' + mtdTakeawaySales.toLocaleString() + '</td></tr>';
+       html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
+       html += '<tr><td><strong>Upsell Per Lakh</strong></td><td><strong>' + dayUpsellPerLakh + '</strong></td><td><strong>' + mtdUpsellPerLakh + '</strong></td></tr>';
+   } else {
+       html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
+   }
+   
+   html += '</tbody></table></div>';
+   
+   // Dessert Analysis
+   html += '<div class="analysis-card">';
+   html += '<div class="analysis-title">Dessert Analysis</div>';
+   
+   const dayDessert = calculateTotal(m1, dessertItems);
+   const mtdDessert = calculateTotal(m2, dessertItems);
+   
+   html += '<table><thead><tr><th>Metric</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+   html += '<tr><td><strong>Total Dessert</strong></td><td><strong>' + dayDessert + '</strong></td><td><strong>' + mtdDessert + '</strong></td></tr>';
+   
+   // Calculate dessert per lakh using DSR sales data
+   if(window.dsrData) {
+       const dayDineInSales = Number(window.dsrData.day["DINE-IN"] || 0);
+       const dayTakeawaySales = Number(window.dsrData.day["TAKEAWAY"] || 0);
+       const mtdDineInSales = Number(window.dsrData.mtd["DINE-IN"] || 0);
+       const mtdTakeawaySales = Number(window.dsrData.mtd["TAKEAWAY"] || 0);
+       
+       const dayTotalSales = dayDineInSales + dayTakeawaySales;
+       const mtdTotalSales = mtdDineInSales + mtdTakeawaySales;
+       
+       const dayDessertPerLakh = dayTotalSales > 0 ? (dayDessert / dayTotalSales * 100000).toFixed(2) : "N/A";
+       const mtdDessertPerLakh = mtdTotalSales > 0 ? (mtdDessert / mtdTotalSales * 100000).toFixed(2) : "N/A";
+       
+       html += '<tr><td><strong>Total Dine-In + Takeaway Sales</strong></td><td><strong>₹' + dayTotalSales.toLocaleString() + '</strong></td><td><strong>₹' + mtdTotalSales.toLocaleString() + '</strong></td></tr>';
+       html += '<tr><td><strong>Dessert Per Lakh</strong></td><td><strong>' + dayDessertPerLakh + '</strong></td><td><strong>' + mtdDessertPerLakh + '</strong></td></tr>';
+   } else {
+       html += '<tr><td colspan="3" style="color: #ff6666; font-style: italic;">Process DSR files first to calculate Per Lakh metrics</td></tr>';
+   }
+   
+   html += '</tbody></table></div>';
+   html += '</div></div>';
+   
+   document.getElementById("menuTableWrap").innerHTML = html;
 }
 
 // Helper function to calculate totals
 function calculateTotal(data, items) {
-    let total = 0;
-    for(const item of items) {
-        const value = data[item];
-        if(value && !isNaN(Number(value))) {
-            total += Number(value);
-        }
-    }
-    return total;
+   let total = 0;
+   for(const item of items) {
+       const value = data[item];
+       if(value && !isNaN(Number(value))) {
+           total += Number(value);
+       }
+   }
+   return total;
 }
 
 // HS Report Processing Functions
 async function processHSReport(){
-    const f5 = document.getElementById("file5").files[0];
-    const f6 = document.getElementById("file6").files[0];
-    if(!f5 || !f6){ 
-        alert("Please upload both HS Report and HS Report MTD files."); 
-        return; 
-    }
+   const f5 = document.getElementById("file5").files[0];
+   const f6 = document.getElementById("file6").files[0];
+   if(!f5 || !f6){ 
+       alert("Please upload both HS Report and HS Report MTD files."); 
+       return; 
+   }
 
-    try {
-        const [wb5, wb6] = await Promise.all([readWorkbookFromFile(f5), readWorkbookFromFile(f6)]);
-        const sheet5 = wb5.Sheets[wb5.SheetNames[0]];
-        const sheet6 = wb6.Sheets[wb6.SheetNames[0]];
+   try {
+       const [wb5, wb6] = await Promise.all([readWorkbookFromFile(f5), readWorkbookFromFile(f6)]);
+       const sheet5 = wb5.Sheets[wb5.SheetNames[0]];
+       const sheet6 = wb6.Sheets[wb6.SheetNames[0]];
 
-        const hsData1 = analyzeHSReport(sheet5, "Day");
-        const hsData2 = analyzeHSReport(sheet6, "MTD");
+       const hsData1 = analyzeHSReport(sheet5, "Day");
+       const hsData2 = analyzeHSReport(sheet6, "MTD");
 
-        hsReportData = { day: hsData1, mtd: hsData2 };
-        renderHSAnalysis(hsData1, hsData2);
-        document.getElementById("hsCard").style.display = "block";
-    } catch (error) {
-        alert("Error processing HS Report files: " + error.message);
-        console.error(error);
-    }
+       hsReportData = { day: hsData1, mtd: hsData2 };
+       renderHSAnalysis(hsData1, hsData2);
+       document.getElementById("hsCard").style.display = "block";
+   } catch (error) {
+       alert("Error processing HS Report files: " + error.message);
+       console.error(error);
+   }
 }
 
 function analyzeHSReport(sheet, period) {
-    const data2d = sheetTo2DArray(sheet);
-    const analysis = {
-        period: period,
-        orderSources: {},
-        salesTypes: {},
-        orderSourceBreakdown: {}
-    };
+   const data2d = sheetTo2DArray(sheet);
+   const analysis = {
+       period: period,
+       orderSources: {},
+       salesTypes: {},
+       orderSourceBreakdown: {}
+   };
 
-    // Initialize counters
-    orderSources.forEach(source => {
-        analysis.orderSources[source] = 0;
-        analysis.orderSourceBreakdown[source] = {
-            DELIVERY: 0,
-            "DINE-IN": 0,
-            TAKEAWAY: 0
-        };
-    });
-    salesTypes.forEach(type => analysis.salesTypes[type] = 0);
+   // Initialize counters
+   orderSources.forEach(source => {
+       analysis.orderSources[source] = 0;
+       analysis.orderSourceBreakdown[source] = {
+           DELIVERY: 0,
+           "DINE-IN": 0,
+           TAKEAWAY: 0
+       };
+   });
+   salesTypes.forEach(type => analysis.salesTypes[type] = 0);
 
-    // Find column headers
-    let orderSourceCol = -1;
-    let salesTypeCol = -1;
-    let headerRow = -1;
+   // Find column headers
+   let orderSourceCol = -1;
+   let salesTypeCol = -1;
+   let headerRow = -1;
 
-    // Search for header row and column indices
-    for(let rowIdx = 0; rowIdx < Math.min(10, data2d.length); rowIdx++) {
-        const row = data2d[rowIdx];
-        if(!row) continue;
-        
-        for(let colIdx = 0; colIdx < row.length; colIdx++) {
-            const cellText = String(row[colIdx] || "").trim().toLowerCase();
-            
-            if(cellText.includes("order") && cellText.includes("source")) {
-                orderSourceCol = colIdx;
-                headerRow = rowIdx;
-            }
-            if(cellText.includes("sales") && cellText.includes("type")) {
-                salesTypeCol = colIdx;
-                headerRow = rowIdx;
-            }
-        }
-    }
+   // Search for header row and column indices
+   for(let rowIdx = 0; rowIdx < Math.min(10, data2d.length); rowIdx++) {
+       const row = data2d[rowIdx];
+       if(!row) continue;
+       
+       for(let colIdx = 0; colIdx < row.length; colIdx++) {
+           const cellText = String(row[colIdx] || "").trim().toLowerCase();
+           
+           if(cellText.includes("order") && cellText.includes("source")) {
+               orderSourceCol = colIdx;
+               headerRow = rowIdx;
+           }
+           if(cellText.includes("sales") && cellText.includes("type")) {
+               salesTypeCol = colIdx;
+               headerRow = rowIdx;
+           }
+       }
+   }
 
-    console.log(`Found headers at row ${headerRow}: Order Source col ${orderSourceCol}, Sales Type col ${salesTypeCol}`);
+   console.log(`Found headers at row ${headerRow}: Order Source col ${orderSourceCol}, Sales Type col ${salesTypeCol}`);
 
-    // Count occurrences and cross-reference
-    if(headerRow >= 0) {
-        for(let rowIdx = headerRow + 1; rowIdx < data2d.length; rowIdx++) {
-            const row = data2d[rowIdx];
-            if(!row) continue;
+   // Count occurrences and cross-reference
+   if(headerRow >= 0) {
+       for(let rowIdx = headerRow + 1; rowIdx < data2d.length; rowIdx++) {
+           const row = data2d[rowIdx];
+           if(!row) continue;
 
-            const orderSource = String(row[orderSourceCol] || "").trim().toUpperCase();
-            const salesType = String(row[salesTypeCol] || "").trim().toUpperCase();
+           const orderSource = String(row[orderSourceCol] || "").trim().toUpperCase();
+           const salesType = String(row[salesTypeCol] || "").trim().toUpperCase();
 
-            // Count Order Sources
-            if(orderSourceCol >= 0 && orderSourceCol < row.length) {
-                orderSources.forEach(source => {
-                    if(orderSource.includes(source)) {
-                        analysis.orderSources[source]++;
-                        
-                        // Cross-reference with sales type for breakdown
-                        if(salesTypeCol >= 0 && salesTypeCol < row.length) {
-                            salesTypes.forEach(type => {
-                                if(salesType.includes(type)) {
-                                    analysis.orderSourceBreakdown[source][type]++;
-                                }
-                            });
-                        }
-                    }
-                });
-            }
+           // Count Order Sources
+           if(orderSourceCol >= 0 && orderSourceCol < row.length) {
+               orderSources.forEach(source => {
+                   if(orderSource.includes(source)) {
+                       analysis.orderSources[source]++;
+                       
+                       // Cross-reference with sales type for breakdown
+                       if(salesTypeCol >= 0 && salesTypeCol < row.length) {
+                           salesTypes.forEach(type => {
+                               if(salesType.includes(type)) {
+                                   analysis.orderSourceBreakdown[source][type]++;
+                               }
+                           });
+                       }
+                   }
+               });
+           }
 
-            // Count Sales Types
-            if(salesTypeCol >= 0 && salesTypeCol < row.length) {
-                salesTypes.forEach(type => {
-                    if(salesType.includes(type)) {
-                        analysis.salesTypes[type]++;
-                    }
-                });
-            }
-        }
-    }
+           // Count Sales Types
+           if(salesTypeCol >= 0 && salesTypeCol < row.length) {
+               salesTypes.forEach(type => {
+                   if(salesType.includes(type)) {
+                       analysis.salesTypes[type]++;
+                   }
+               });
+           }
+       }
+   }
 
-    return analysis;
+   return analysis;
 }
 
 function renderHSAnalysis(hsData1, hsData2) {
-    let html = '<div class="analysis-section">';
-    
-    // Order Sources Analysis with Breakdown
-    html += '<div class="analysis-card">';
-    html += '<div class="analysis-title">Order Source Breakdown</div>';
-    html += '<table><thead><tr><th>Order Source</th><th>Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
-    
-    orderSources.forEach(source => {
-        const dayTotal = hsData1.orderSources[source] || 0;
-        const mtdTotal = hsData2.orderSources[source] || 0;
-        
-        // Total row for each source
-        html += `<tr style="background: rgba(255,64,64,0.05);"><td><strong>${source}</strong></td><td><strong>TOTAL</strong></td><td><strong>${dayTotal}</strong></td><td><strong>${mtdTotal}</strong></td></tr>`;
-        
-        // Breakdown by sales type
-        salesTypes.forEach(type => {
-            const dayCount = hsData1.orderSourceBreakdown[source][type] || 0;
-            const mtdCount = hsData2.orderSourceBreakdown[source][type] || 0;
-            html += `<tr><td></td><td style="padding-left: 20px; color: #9fffc4;">${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
-        });
-    });
-    
-    html += '</tbody></table></div>';
+   let html = '<div class="analysis-section">';
+   
+   // Order Sources Analysis with Breakdown
+   html += '<div class="analysis-card">';
+   html += '<div class="analysis-title">Order Source Breakdown</div>';
+   html += '<table><thead><tr><th>Order Source</th><th>Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
+   
+   orderSources.forEach(source => {
+       const dayTotal = hsData1.orderSources[source] || 0;
+       const mtdTotal = hsData2.orderSources[source] || 0;
+       
+       // Total row for each source
+       html += `<tr style="background: rgba(255,64,64,0.05);"><td><strong>${source}</strong></td><td><strong>TOTAL</strong></td><td><strong>${dayTotal}</strong></td><td><strong>${mtdTotal}</strong></td></tr>`;
+       
+       // Breakdown by sales type
+       salesTypes.forEach(type => {
+           const dayCount = hsData1.orderSourceBreakdown[source][type] || 0;
+           const mtdCount = hsData2.orderSourceBreakdown[source][type] || 0;
+           html += `<tr><td></td><td style="padding-left: 20px; color: #9fffc4;">${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
+       });
+   });
+   
+   html += '</tbody></table></div>';
 
-    // Sales Types Analysis (Overall)
-    html += '<div class="analysis-card">';
-    html += '<div class="analysis-title">Overall Sales Type Breakdown</div>';
-    html += '<table><thead><tr><th>Sales Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
-    
-    salesTypes.forEach(type => {
-        const dayCount = hsData1.salesTypes[type] || 0;
-        const mtdCount = hsData2.salesTypes[type] || 0;
-        html += `<tr><td>${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
-    });
-    
-    html += '</tbody></table></div>';
-    html += '</div>';
+   // Sales Types Analysis (Overall)
+   html += '<div class="analysis-card">';
+   html += '<div class="analysis-title">Overall Sales Type Breakdown</div>';
+   html += '<table><thead><tr><th>Sales Type</th><th>Day Count</th><th>MTD Count</th></tr></thead><tbody>';
+   
+   salesTypes.forEach(type => {
+       const dayCount = hsData1.salesTypes[type] || 0;
+       const mtdCount = hsData2.salesTypes[type] || 0;
+       html += `<tr><td>${type}</td><td>${dayCount}</td><td>${mtdCount}</td></tr>`;
+   });
+   
+   html += '</tbody></table></div>';
+   html += '</div>';
 
-    document.getElementById("hsAnalysisWrap").innerHTML = html;
+   document.getElementById("hsAnalysisWrap").innerHTML = html;
+}
+
+// LnD Processing Functions
+async function processLnD(){
+   const f7 = document.getElementById("file7").files[0];
+   const f8 = document.getElementById("file8").files[0];
+   if(!f7 || !f8){ 
+       alert("Please upload both LnD and MTD LnD files."); 
+       return; 
+   }
+
+   try {
+       const [wb7, wb8] = await Promise.all([readWorkbookFromFile(f7), readWorkbookFromFile(f8)]);
+       const sheet7 = wb7.Sheets[wb7.SheetNames[0]];
+       const sheet8 = wb8.Sheets[wb8.SheetNames[0]];
+
+       const lndData1 = extractLnDFromSheet(sheet7, "Day");
+       const lndData2 = extractLnDFromSheet(sheet8, "MTD");
+
+       lndData = { day: lndData1, mtd: lndData2 };
+       renderLnDAnalysis(lndData1, lndData2);
+       document.getElementById("lndCard").style.display = "block";
+   } catch (error) {
+       alert("Error processing LnD files: " + error.message);
+       console.error(error);
+   }
+}
+
+function extractLnDFromSheet(sheet, period) {
+   const data2d = sheetTo2DArray(sheet);
+   const result = {
+       period: period,
+       timeSlots: {},
+       totalSales: 0,
+       totalTickets: 0
+   };
+   
+   // Initialize time slots
+   lndTimeSlots.forEach(slot => {
+       result.timeSlots[slot] = {
+           sales: 0,
+           tickets: 0
+       };
+   });
+   
+   // Search for time slot data in the spreadsheet
+   for(let rowIdx = 0; rowIdx < data2d.length; rowIdx++){
+       const row = data2d[rowIdx];
+       if(!row) continue;
+       
+       for(let colIdx = 0; colIdx < row.length; colIdx++){
+           const cellValue = row[colIdx];
+           if(!cellValue) continue;
+           
+           const cellText = String(cellValue).trim();
+           
+           // Check for time slot patterns
+           lndTimeSlots.forEach(slot => {
+               // Handle different time format variations
+               let timePatterns = [];
+               
+               if(slot === "00:00-01:00") {
+                   timePatterns = ["00:00-01:00", "0:00-1:00", "00-01", "0-1", "midnight-1", "12 AM-1 AM"];
+               } else if(slot === "01:00-02:00") {
+                   timePatterns = ["01:00-02:00", "1:00-2:00", "01-02", "1-2", "1 AM-2 AM"];
+               } else if(slot === "02:00-03:00") {
+                   timePatterns = ["02:00-03:00", "2:00-3:00", "02-03", "2-3", "2 AM-3 AM"];
+               } else if(slot === "23:00-Midnight") {
+                   timePatterns = ["23:00-00:00", "23:00-24:00", "23-00", "23-24", "11 PM-12 AM", "23:00-Midnight", "23-midnight"];
+               }
+               
+               const isTimeMatch = timePatterns.some(pattern => 
+                   cellText.toLowerCase().includes(pattern.toLowerCase())
+               );
+               
+               if(isTimeMatch) {
+                   // Look for sales and tickets data nearby
+                   let salesFound = false;
+                   let ticketsFound = false;
+                   
+                   // Search in adjacent cells and rows for numerical data
+                   for(let searchRow = Math.max(0, rowIdx - 2); searchRow <= Math.min(data2d.length - 1, rowIdx + 2); searchRow++) {
+                       const searchRowData = data2d[searchRow];
+                       if(!searchRowData) continue;
+                       
+                       for(let searchCol = Math.max(0, colIdx - 3); searchCol <= Math.min(searchRowData.length - 1, colIdx + 3); searchCol++) {
+                           const searchVal = searchRowData[searchCol];
+                           if(searchVal !== undefined && searchVal !== null) {
+                               const numVal = Number(searchVal);
+                               if(!isNaN(numVal) && numVal > 0) {
+                                   // Heuristic: larger numbers are likely sales, smaller are likely tickets
+                                   if(numVal >= 100 && !salesFound) {
+                                       result.timeSlots[slot].sales = Math.max(result.timeSlots[slot].sales, numVal);
+                                       salesFound = true;
+                                   } else if(numVal < 100 && numVal > 0 && !ticketsFound) {
+                                       result.timeSlots[slot].tickets = Math.max(result.timeSlots[slot].tickets, numVal);
+                                       ticketsFound = true;
+                                   }
+                               }
+                           }
+                       }
+                   }
+                   
+                   // Also check for "Sales" and "Tickets" keywords in nearby cells
+                   for(let searchRow = Math.max(0, rowIdx - 1); searchRow <= Math.min(data2d.length - 1, rowIdx + 1); searchRow++) {
+                       const searchRowData = data2d[searchRow];
+                       if(!searchRowData) continue;
+                       
+                       for(let searchCol = 0; searchCol < searchRowData.length; searchCol++) {
+                           const searchCell = String(searchRowData[searchCol] || "").toLowerCase();
+                           
+                           if(searchCell.includes("sales") || searchCell.includes("amount")) {
+                               // Look for number in adjacent cells
+                               for(let offset = 1; offset <= 3; offset++) {
+                                   if(searchCol + offset < searchRowData.length) {
+                                       const val = Number(searchRowData[searchCol + offset]);
+                                       if(!isNaN(val) && val > 0) {
+                                           result.timeSlots[slot].sales = Math.max(result.timeSlots[slot].sales, val);
+                                       }
+                                   }
+                               }
+                           }
+                           
+                           if(searchCell.includes("ticket") || searchCell.includes("order") || searchCell.includes("count")) {
+                               // Look for number in adjacent cells
+                               for(let offset = 1; offset <= 3; offset++) {
+                                   if(searchCol + offset < searchRowData.length) {
+                                       const val = Number(searchRowData[searchCol + offset]);
+                                       if(!isNaN(val) && val > 0 && val < 1000) { // Reasonable ticket count
+                                           result.timeSlots[slot].tickets = Math.max(result.timeSlots[slot].tickets, val);
+                                       }
+                                   }
+                               }
+                           }
+                       }
+                   }
+               }
+           });
+       }
+   }
+   
+   // Calculate totals
+   lndTimeSlots.forEach(slot => {
+       result.totalSales += result.timeSlots[slot].sales;
+       result.totalTickets += result.timeSlots[slot].tickets;
+   });
+   
+   return result;
+}
+function renderLnDAnalysis(lndData1, lndData2) {
+   let html = '<div class="analysis-section">';
+   
+   // Hourly Breakdown
+   html += '<div class="analysis-card" style="grid-column: 1 / -1;">';
+   html += '<div class="analysis-title" style="color: var(--purple);">Hourly Sales & Tickets Breakdown</div>';
+   html += '<table><thead><tr><th class="lnd">Time Slot</th><th class="lnd">Day Sales</th><th class="lnd">Day Tickets</th><th class="lnd">MTD Sales</th><th class="lnd">MTD Tickets</th></tr></thead><tbody>';
+   
+   lndTimeSlots.forEach(slot => {
+       const daySales = lndData1.timeSlots[slot].sales || 0;
+       const dayTickets = lndData1.timeSlots[slot].tickets || 0;
+       const mtdSales = lndData2.timeSlots[slot].sales || 0;
+       const mtdTickets = lndData2.timeSlots[slot].tickets || 0;
+       
+       html += '<tr>';
+       html += '<td><span class="time-slot">' + slot + '</span></td>';
+       html += '<td>₹' + (daySales ? daySales.toLocaleString() : '0') + '</td>';
+       html += '<td>' + (dayTickets || '0') + '</td>';
+       html += '<td>₹' + (mtdSales ? mtdSales.toLocaleString() : '0') + '</td>';
+       html += '<td>' + (mtdTickets || '0') + '</td>';
+       html += '</tr>';
+   });
+   
+   // Total row
+   html += '<tr style="background: rgba(138,43,226,0.1); font-weight: bold;">';
+   html += '<td><strong>TOTAL</strong></td>';
+   html += '<td><strong>₹' + (lndData1.totalSales || 0).toLocaleString() + '</strong></td>';
+   html += '<td><strong>' + (lndData1.totalTickets || 0) + '</strong></td>';
+   html += '<td><strong>₹' + (lndData2.totalSales || 0).toLocaleString() + '</strong></td>';
+   html += '<td><strong>' + (lndData2.totalTickets || 0) + '</strong></td>';
+   html += '</tr>';
+   
+   html += '</tbody></table></div>';
+   
+   // Summary Analysis
+   html += '<div class="analysis-card">';
+   html += '<div class="analysis-title" style="color: var(--purple);">LnD Performance Summary</div>';
+   html += '<table><thead><tr><th class="lnd">Metric</th><th class="lnd">Day</th><th class="lnd">MTD</th></tr></thead><tbody>';
+   
+   const dayAvgPerTicket = lndData1.totalTickets > 0 ? (lndData1.totalSales / lndData1.totalTickets).toFixed(2) : "0";
+   const mtdAvgPerTicket = lndData2.totalTickets > 0 ? (lndData2.totalSales / lndData2.totalTickets).toFixed(2) : "0";
+   
+   html += '<tr><td>Average Sale per Ticket</td><td>₹' + dayAvgPerTicket + '</td><td>₹' + mtdAvgPerTicket + '</td></tr>';
+   
+   // Peak hour analysis
+   let dayPeakHour = "";
+   let mtdPeakHour = "";
+   let dayMaxSales = 0;
+   let mtdMaxSales = 0;
+   
+   lndTimeSlots.forEach(slot => {
+       if(lndData1.timeSlots[slot].sales > dayMaxSales) {
+           dayMaxSales = lndData1.timeSlots[slot].sales;
+           dayPeakHour = slot;
+       }
+       if(lndData2.timeSlots[slot].sales > mtdMaxSales) {
+           mtdMaxSales = lndData2.timeSlots[slot].sales;
+           mtdPeakHour = slot;
+       }
+   });
+   
+   html += '<tr><td>Peak Sales Hour</td><td>' + (dayPeakHour || "N/A") + '</td><td>' + (mtdPeakHour || "N/A") + '</td></tr>';
+   html += '<tr><td>Peak Hour Sales</td><td>₹' + dayMaxSales.toLocaleString() + '</td><td>₹' + mtdMaxSales.toLocaleString() + '</td></tr>';
+   
+   html += '</tbody></table></div>';
+   
+   // Performance vs Regular Hours (if DSR data available)
+   if(window.dsrData) {
+       html += '<div class="analysis-card">';
+       html += '<div class="analysis-title" style="color: var(--purple);">LnD vs Total Performance</div>';
+       html += '<table><thead><tr><th class="lnd">Metric</th><th class="lnd">Day</th><th class="lnd">MTD</th></tr></thead><tbody>';
+       
+       const dayTotalSales = Number(window.dsrData.day["Total Sales"] || window.dsrData.day["Net Sales"] || 0);
+       const mtdTotalSales = Number(window.dsrData.mtd["Total Sales"] || window.dsrData.mtd["Net Sales"] || 0);
+       
+       const dayLnDPercentage = dayTotalSales > 0 ? ((lndData1.totalSales / dayTotalSales) * 100).toFixed(2) : "0";
+       const mtdLnDPercentage = mtdTotalSales > 0 ? ((lndData2.totalSales / mtdTotalSales) * 100).toFixed(2) : "0";
+       
+       html += '<tr><td>LnD % of Total Sales</td><td>' + dayLnDPercentage + '%</td><td>' + mtdLnDPercentage + '%</td></tr>';
+       html += '<tr><td>Total Store Sales</td><td>₹' + dayTotalSales.toLocaleString() + '</td><td>₹' + mtdTotalSales.toLocaleString() + '</td></tr>';
+       
+       html += '</tbody></table></div>';
+   }
+   
+   html += '</div>';
+   
+   document.getElementById("lndAnalysisWrap").innerHTML = html;
 }
 
 // Download Functions
 function downloadMenuMix(which){
-    const result = which === 1 ? menuMixResult1 : menuMixResult2;
-    if(!result){ 
-        alert("No data to export."); 
-        return; 
-    }
+   const result = which === 1 ? menuMixResult1 : menuMixResult2;
+   if(!result){ 
+       alert("No data to export."); 
+       return; 
+   }
 
-    const rows = [];
-    rows.push(["Item Name", "Quantity"]);
-    
-    for(const keyword of menuKeywords){
-        const qty = result[keyword] || "";
-        rows.push([keyword, qty]);
-    }
+   const rows = [];
+   rows.push(["Item Name", "Quantity"]);
+   
+   for(const keyword of menuKeywords){
+       const qty = result[keyword] || "";
+       rows.push([keyword, qty]);
+   }
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "MenuMix");
-    const filename = which === 1 ? "Processed_Day_Menu_Mix.xlsx" : "Processed_MTD_Menu_Mix.xlsx";
-    XLSX.writeFile(wb, filename);
+   const ws = XLSX.utils.aoa_to_sheet(rows);
+   const wb = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(wb, ws, "MenuMix");
+   const filename = which === 1 ? "Processed_Day_Menu_Mix.xlsx" : "Processed_MTD_Menu_Mix.xlsx";
+   XLSX.writeFile(wb, filename);
 }
 
 function downloadDSRComparison(){
-    const dsrWrap = document.getElementById("dsrTableWrap");
-    if(!dsrWrap || !dsrWrap.innerText.trim()){ 
-        alert("No DSR comparison to export."); 
-        return; 
-    }
+   const dsrWrap = document.getElementById("dsrTableWrap");
+   if(!dsrWrap || !dsrWrap.innerText.trim()){ 
+       alert("No DSR comparison to export."); 
+       return; 
+   }
 
-    let csvRows = [];
-    csvRows.push(["Field","Day","MTD"]);
-    const table = dsrWrap.querySelector("table");
-    if(!table){ 
-        alert("No DSR table found."); 
-        return; 
-    }
-    
-    const tableRows = table.querySelectorAll("tbody tr");
-    for(let i = 0; i < tableRows.length; i++){
-        const tds = tableRows[i].querySelectorAll("td");
-        const rowData = [tds[0].innerText.trim(), tds[1].innerText.trim(), tds[2].innerText.trim()];
-        csvRows.push(rowData);
-    }
-    
-    const ws = XLSX.utils.aoa_to_sheet(csvRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "DSR_Comparison");
-    XLSX.writeFile(wb, "DSR_Comparison.xlsx");
+   let csvRows = [];
+   csvRows.push(["Field","Day","MTD"]);
+   const table = dsrWrap.querySelector("table");
+   if(!table){ 
+       alert("No DSR table found."); 
+       return; 
+   }
+   
+   const tableRows = table.querySelectorAll("tbody tr");
+   for(let i = 0; i < tableRows.length; i++){
+       const tds = tableRows[i].querySelectorAll("td");
+       const rowData = [tds[0].innerText.trim(), tds[1].innerText.trim(), tds[2].innerText.trim()];
+       csvRows.push(rowData);
+   }
+   
+   const ws = XLSX.utils.aoa_to_sheet(csvRows);
+   const wb = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(wb, ws, "DSR_Comparison");
+   XLSX.writeFile(wb, "DSR_Comparison.xlsx");
 }
 
 function downloadHSAnalysis(){
-    if(!hsReportData){ 
-        alert("No HS Report analysis to export."); 
-        return; 
-    }
+   if(!hsReportData){ 
+       alert("No HS Report analysis to export."); 
+       return; 
+   }
 
-    const rows = [];
-    
-    // Order Sources with Breakdown
-    rows.push(["Order Source Detailed Analysis"]);
-    rows.push(["Order Source", "Sales Type", "Day Count", "MTD Count"]);
-    
-    orderSources.forEach(source => {
-        const dayTotal = hsReportData.day.orderSources[source] || 0;
-        const mtdTotal = hsReportData.mtd.orderSources[source] || 0;
-        
-        // Total row
-        rows.push([source, "TOTAL", dayTotal, mtdTotal]);
-        
-        // Breakdown rows
-        salesTypes.forEach(type => {
-            const dayCount = hsReportData.day.orderSourceBreakdown[source][type] || 0;
-            const mtdCount = hsReportData.mtd.orderSourceBreakdown[source][type] || 0;
-            rows.push(["", type, dayCount, mtdCount]);
-        });
-        
-        rows.push([""]);  // Empty row for separation
-    });
-    
-    rows.push([""]);
-    
-    // Overall Sales Types
-    rows.push(["Overall Sales Type Analysis"]);
-    rows.push(["Sales Type", "", "Day Count", "MTD Count"]);
-    salesTypes.forEach(type => {
-        const dayCount = hsReportData.day.salesTypes[type] || 0;
-        const mtdCount = hsReportData.mtd.salesTypes[type] || 0;
-        rows.push([type, "", dayCount, mtdCount]);
-    });
+   const rows = [];
+   
+   // Order Sources with Breakdown
+   rows.push(["Order Source Detailed Analysis"]);
+   rows.push(["Order Source", "Sales Type", "Day Count", "MTD Count"]);
+   
+   orderSources.forEach(source => {
+       const dayTotal = hsReportData.day.orderSources[source] || 0;
+       const mtdTotal = hsReportData.mtd.orderSources[source] || 0;
+       
+       // Total row
+       rows.push([source, "TOTAL", dayTotal, mtdTotal]);
+       
+       // Breakdown rows
+       salesTypes.forEach(type => {
+           const dayCount = hsReportData.day.orderSourceBreakdown[source][type] || 0;
+           const mtdCount = hsReportData.mtd.orderSourceBreakdown[source][type] || 0;
+           rows.push(["", type, dayCount, mtdCount]);
+       });
+       
+       rows.push([""]);  // Empty row for separation
+   });
+   
+   rows.push([""]);
+   
+   // Overall Sales Types
+   rows.push(["Overall Sales Type Analysis"]);
+   rows.push(["Sales Type", "", "Day Count", "MTD Count"]);
+   salesTypes.forEach(type => {
+       const dayCount = hsReportData.day.salesTypes[type] || 0;
+       const mtdCount = hsReportData.mtd.salesTypes[type] || 0;
+       rows.push([type, "", dayCount, mtdCount]);
+   });
 
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "HS_Report_Analysis");
-    XLSX.writeFile(wb, "HS_Report_Detailed_Analysis.xlsx");
+   const ws = XLSX.utils.aoa_to_sheet(rows);
+   const wb = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(wb, ws, "HS_Report_Analysis");
+   XLSX.writeFile(wb, "HS_Report_Detailed_Analysis.xlsx");
+}
+
+function downloadLnDAnalysis(){
+   if(!lndData){ 
+       alert("No LnD analysis to export."); 
+       return; 
+   }
+
+   const rows = [];
+   
+   // Header
+   rows.push(["Late Night Delivery Analysis"]);
+   rows.push([""]);
+   
+   // Hourly breakdown
+   rows.push(["Time Slot", "", "Day Sales", "Day Tickets", "MTD Sales", "MTD Tickets"]);
+   
+   lndTimeSlots.forEach(slot => {
+       const daySales = lndData.day.timeSlots[slot].sales || 0;
+       const dayTickets = lndData.day.timeSlots[slot].tickets || 0;
+       const mtdSales = lndData.mtd.timeSlots[slot].sales || 0;
+       const mtdTickets = lndData.mtd.timeSlots[slot].tickets || 0;
+       
+       rows.push([slot, "", daySales, dayTickets, mtdSales, mtdTickets]);
+   });
+   
+   // Totals
+   rows.push([""]);
+   rows.push(["TOTAL", "", lndData.day.totalSales, lndData.day.totalTickets, lndData.mtd.totalSales, lndData.mtd.totalTickets]);
+   
+   // Performance metrics
+   rows.push([""]);
+   rows.push(["Performance Metrics"]);
+   
+   const dayAvgPerTicket = lndData.day.totalTickets > 0 ? (lndData.day.totalSales / lndData.day.totalTickets).toFixed(2) : "0";
+   const mtdAvgPerTicket = lndData.mtd.totalTickets > 0 ? (lndData.mtd.totalSales / lndData.mtd.totalTickets).toFixed(2) : "0";
+   
+   rows.push(["Average Sale per Ticket", "", dayAvgPerTicket, "", mtdAvgPerTicket, ""]);
+   
+   // Peak hour analysis
+   let dayPeakHour = "";
+   let mtdPeakHour = "";
+   let dayMaxSales = 0;
+   let mtdMaxSales = 0;
+   
+   lndTimeSlots.forEach(slot => {
+       if(lndData.day.timeSlots[slot].sales > dayMaxSales) {
+           dayMaxSales = lndData.day.timeSlots[slot].sales;
+           dayPeakHour = slot;
+       }
+       if(lndData.mtd.timeSlots[slot].sales > mtdMaxSales) {
+           mtdMaxSales = lndData.mtd.timeSlots[slot].sales;
+           mtdPeakHour = slot;
+       }
+   });
+   
+   rows.push(["Peak Sales Hour", "", dayPeakHour, "", mtdPeakHour, ""]);
+   rows.push(["Peak Hour Sales", "", dayMaxSales, "", mtdMaxSales, ""]);
+
+   const ws = XLSX.utils.aoa_to_sheet(rows);
+   const wb = XLSX.utils.book_new();
+   XLSX.utils.book_append_sheet(wb, ws, "LnD_Analysis");
+   XLSX.writeFile(wb, "LnD_Detailed_Analysis.xlsx");
 }
 
 // Utility Functions
 function escapeHtml(v){
-    if(v === null || typeof v === "undefined") return "";
-    if(typeof v === "number") {
-        return Number.isInteger(v) ? v.toString() : v.toFixed(2).toString();
-    }
-    return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+   if(v === null || typeof v === "undefined") return "";
+   if(typeof v === "number") {
+       return Number.isInteger(v) ? v.toString() : v.toFixed(2).toString();
+   }
+   return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
-
 </script>
 
 </body>
