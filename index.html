@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Day vs MTD Sales + Menu Mix Comparator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+    :root{
+        --bg: #0d0d0d;
+        --panel: #1a1a1a;
+        --neon: #00ff80;
+        --accent: #ff4040;
+        --muted: #333;
+    }
+    html,body{height:100%; margin:0;}
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg);
+        color: var(--neon);
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+    }
+    h1 {
+        color: var(--accent);
+        text-shadow: 0 0 10px var(--accent);
+        margin: 0 0 4px 0;
+        font-size: 22px;
+    }
+    p.subtitle {
+        margin: 0;
+        color: #9fffc4;
+        opacity: 0.85;
+        font-size: 13px;
+    }
+    .upload-box {
+        display:flex;
+        gap:18px;
+        align-items:flex-end;
+        flex-wrap:wrap;
+    }
+    .upload-section {
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:8px;
+    }
+    label {
+        color: var(--accent);
+        font-weight:700;
+        margin-bottom:4px;
+        font-size:13px;
+    }
+    input[type="file"] {
+        background-color: var(--panel);
+        border: 1px solid var(--neon);
+        color: var(--neon);
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+    }
+    button {
+        background-color: var(--panel);
+        border: 1px solid var(--neon);
+        color: var(--neon);
+        padding: 9px 14px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor:pointer;
+    }
+    button.primary {
+        background: linear-gradient(90deg, rgba(0,255,128,0.06), rgba(0,255,128,0.02));
+        box-shadow: 0 0 10px rgba(0,255,128,0.08);
+    }
+    button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 18px rgba(0,255,128,0.12);
+    }
+
+    .cards {
+        width: 92%;
+        max-width: 1100px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+        margin-top: 6px;
+    }
+
+    .card {
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 14px;
+        box-shadow: 0 0 18px rgba(0,255,128,0.07);
+        border: 1px solid rgba(0,255,128,0.06);
+        animation: fadeIn 550ms ease-out;
+    }
+
+    .card-head {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        margin-bottom:12px;
+    }
+    .card-title {
+        color: var(--accent);
+        font-weight:700;
+        text-shadow: 0 0 6px rgba(255,64,64,0.08);
+    }
+    .card-controls { display:flex; gap:8px; align-items:center; }
+
+    table {
+        width:100%;
+        border-collapse: collapse;
+        background: transparent;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+    th, td {
+        padding: 10px 12px;
+        text-align:left;
+        font-size: 14px;
+    }
+    th {
+        background: var(--accent);
+        color: #fff;
+        font-weight:700;
+        font-size:14px;
+    }
+    td {
+        color: var(--neon);
+        border-top: 1px solid rgba(255,255,255,0.04);
+    }
+    tr:hover td {
+        background: rgba(0,255,128,0.02);
+        transform: scale(1.005);
+    }
+
+    .small-note { font-size:12px; color:#a7ffd1; opacity:0.9; }
+
+    .download-btn {
+        background: transparent;
+        border: 1px dashed rgba(0,255,128,0.18);
+        color: var(--neon);
+        padding: 6px 10px;
+        border-radius:6px;
+    }
+
+    @keyframes fadeIn {
+        from { opacity:0; transform: translateY(6px) }
+        to { opacity:1; transform: translateY(0) }
+    }
+
+    @media (max-width:900px){
+        .upload-box{ justify-content:center; }
+    }
+</style>
+</head>
+<body>
+
+    <div style="text-align:center; max-width:900px;">
+        <h1>Day vs MTD Sales + Menu Mix Comparator</h1>
+        <p class="subtitle">Upload your DSR / MTD DSR and Menu Mix / MTD Menu Mix files. All processing runs in your browser.</p>
+    </div>
+
+    <div class="upload-box">
+        <div class="upload-section">
+            <label for="file1">Upload DSR</label>
+            <input type="file" id="file1" accept=".xlsx, .xls">
+        </div>
+
+        <div class="upload-section">
+            <label for="file2">Upload MTD DSR</label>
+            <input type="file" id="file2" accept=".xlsx, .xls">
+        </div>
+
+        <div style="display:flex; align-items:flex-end; gap:8px;">
+            <button class="primary" onclick="compareDSR()">Compare DSR</button>
+        </div>
+    </div>
+
+    <div class="upload-box" style="margin-top:6px;">
+        <div class="upload-section">
+            <label for="file3">Upload Menu Mix</label>
+            <input type="file" id="file3" accept=".xlsx, .xls">
+        </div>
+
+        <div class="upload-section">
+            <label for="file4">Upload MTD Menu Mix</label>
+            <input type="file" id="file4" accept=".xlsx, .xls">
+        </div>
+
+        <div style="display:flex; align-items:flex-end; gap:8px;">
+            <button class="primary" onclick="processMenuMix()">Process Menu Mix</button>
+        </div>
+    </div>
+
+    <div class="cards">
+        <!-- DSR Comparison Card -->
+        <div class="card" id="dsrCard" style="display:none;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">DSR Comparison</div>
+                    <div class="small-note">Fields extracted from DSR (Day) and MTD DSR (MTD)</div>
+                </div>
+                <div class="card-controls">
+                    <button class="download-btn" onclick="downloadDSRComparison()">Export Excel</button>
+                </div>
+            </div>
+            <div id="dsrTableWrap"></div>
+        </div>
+
+        <!-- Menu Mix Comparison Card -->
+        <div class="card" id="menuCard" style="display:none;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">Menu Mix Comparison</div>
+                    <div class="small-note">Keyword-based extraction: searches for specific menu items and their quantities</div>
+                </div>
+                <div class="card-controls">
+                    <button class="download-btn" onclick="downloadMenuMix(1)">Download Day Menu Mix</button>
+                    <button class="download-btn" onclick="downloadMenuMix(2)">Download MTD Menu Mix</button>
+                </div>
+            </div>
+            <div id="menuTableWrap"></div>
+        </div>
+    </div>
+
+<script>
+// Keywords for DSR extraction
+const keywords = [
+    "Net Sales",
+    "Total No.of Orders",
+    "No. of Orders in DELIVERY",
+    "No. of Orders in DINE-IN",
+    "No. of Orders in TAKEAWAY",
+    "DELIVERY",
+    "DINE-IN",
+    "TAKEAWAY",
+    "Total Sales"
+];
+
+// Menu Mix Keywords
+const menuKeywords = [
+    "Tandoori Masala dip",
+    "Dynamite Spicy Mayo Dip", 
+    "Nashville Hot Pepper Dip",
+    "Choco Mud Pie",
+    "Coffee Mousse Cake",
+    "Choclate Lava Cake",
+    "ADDON REG FRIES & PEPSI",
+    "FRIES+ PEPSI ADDON-MED.",
+    "ADDON MED FRIES & PEPSI",
+    "ADDON LRG FRIES & PEPSI",
+    "CHEESE"
+];
+
+let menuMixResult1 = null;
+let menuMixResult2 = null;
+
+// Helper functions
+function readWorkbookFromFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                resolve(wb);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function sheetTo2DArray(sheet) {
+    return XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+}
+
+// DSR Comparison Functions
+async function compareDSR(){
+    const f1 = document.getElementById("file1").files[0];
+    const f2 = document.getElementById("file2").files[0];
+    if(!f1 || !f2){ 
+        alert("Please upload both DSR and MTD DSR files."); 
+        return; 
+    }
+
+    try {
+        const [wb1, wb2] = await Promise.all([readWorkbookFromFile(f1), readWorkbookFromFile(f2)]);
+        const sheet1 = wb1.Sheets[wb1.SheetNames[0]];
+        const sheet2 = wb2.Sheets[wb2.SheetNames[0]];
+        const data1 = sheetTo2DArray(sheet1);
+        const data2 = sheetTo2DArray(sheet2);
+
+        const extracted1 = extractFrom2D(data1);
+        const extracted2 = extractFrom2D(data2);
+
+        renderDSRTable(extracted1, extracted2);
+        document.getElementById("dsrCard").style.display = "block";
+    } catch (error) {
+        alert("Error processing DSR files: " + error.message);
+        console.error(error);
+    }
+}
+
+function extractFrom2D(arr2d){
+    const result = {};
+    for(const row of arr2d){
+        if(!row || row.length < 2) continue;
+        const key = String(row[0]).trim();
+        const val = row[1];
+        if(keywords.includes(key)) {
+            result[key] = val;
+        }
+    }
+    return result;
+}
+
+function renderDSRTable(d1, d2){
+    let html = '<table><thead><tr><th>Field</th><th>Day</th><th>MTD</th></tr></thead><tbody>';
+    for(const k of keywords){
+        const v1 = (d1[k] !== undefined && d1[k] !== null) ? d1[k] : "";
+        const v2 = (d2[k] !== undefined && d2[k] !== null) ? d2[k] : "";
+        html += '<tr><td>' + k + '</td><td>' + escapeHtml(v1) + '</td><td>' + escapeHtml(v2) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById("dsrTableWrap").innerHTML = html;
+}
+
+// Menu Mix Processing Functions
+async function processMenuMix(){
+    const f3 = document.getElementById("file3").files[0];
+    const f4 = document.getElementById("file4").files[0];
+    if(!f3 || !f4){ 
+        alert("Please upload both Menu Mix and MTD Menu Mix files."); 
+        return; 
+    }
+
+    try {
+        const [wb3, wb4] = await Promise.all([readWorkbookFromFile(f3), readWorkbookFromFile(f4)]);
+        const sheet3 = wb3.Sheets[wb3.SheetNames[0]];
+        const sheet4 = wb4.Sheets[wb4.SheetNames[0]];
+
+        menuMixResult1 = extractMenuItemsFromSheet(sheet3);
+        menuMixResult2 = extractMenuItemsFromSheet(sheet4);
+
+        renderMenuMixTable(menuMixResult1, menuMixResult2);
+        document.getElementById("menuCard").style.display = "block";
+    } catch (error) {
+        alert("Error processing Menu Mix files: " + error.message);
+        console.error(error);
+    }
+}
+
+function extractMenuItemsFromSheet(sheet){
+    const result = {};
+    const data2d = sheetTo2DArray(sheet);
+    
+    // Initialize all keywords with empty values
+    for(const keyword of menuKeywords){
+        result[keyword] = "";
+    }
+    
+    // Search through all rows and columns for keywords
+    for(let rowIdx = 0; rowIdx < data2d.length; rowIdx++){
+        const row = data2d[rowIdx];
+        if(!row) continue;
+        
+        for(let colIdx = 0; colIdx < row.length; colIdx++){
+            const cellValue = row[colIdx];
+            if(!cellValue) continue;
+            
+            const cellText = String(cellValue).trim();
+            
+            // Check if this cell contains any of our keywords
+            for(const keyword of menuKeywords){
+                const isMatch = cellText.toLowerCase().includes(keyword.toLowerCase());
+                
+                if(isMatch){
+                    // Debug logging for CHEESE
+                    if(keyword.toLowerCase() === "cheese"){
+                        console.log("Found CHEESE at row " + rowIdx + ", col " + colIdx + ": " + cellText);
+                    }
+                    
+                    let foundValue = "";
+                    let searchResults = [];
+                    
+                    // Check right (1-4 columns)
+                    for(let offset = 1; offset <= 4; offset++){
+                        if(colIdx + offset < row.length){
+                            const val = row[colIdx + offset];
+                            if(val !== undefined && val !== null){
+                                const numVal = Number(val);
+                                if(!isNaN(numVal) && String(val).trim() !== ""){
+                                    searchResults.push({direction: "right+" + offset, value: numVal});
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check left (1-3 columns)
+                    for(let offset = 1; offset <= 3; offset++){
+                        if(colIdx - offset >= 0){
+                            const val = row[colIdx - offset];
+                            if(val !== undefined && val !== null){
+                                const numVal = Number(val);
+                                if(!isNaN(numVal) && String(val).trim() !== ""){
+                                    searchResults.push({direction: "left+" + offset, value: numVal});
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check below (1-2 rows)
+                    for(let offset = 1; offset <= 2; offset++){
+                        if(rowIdx + offset < data2d.length){
+                            const nextRow = data2d[rowIdx + offset];
+                            if(nextRow && colIdx < nextRow.length){
+                                const val = nextRow[colIdx];
+                                if(val !== undefined && val !== null){
+                                    const numVal = Number(val);
+                                    if(!isNaN(numVal) && String(val).trim() !== ""){
+                                        searchResults.push({direction: "below+" + offset, value: numVal});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if(keyword.toLowerCase() === "cheese"){
+                        console.log("CHEESE search results:", searchResults);
+                    }
+                    
+                    // Pick the highest value found
+                    if(searchResults.length > 0){
+                        searchResults.sort(function(a, b){ return b.value - a.value; });
+                        foundValue = searchResults[0].value;
+                        
+                        if(keyword.toLowerCase() === "cheese"){
+                            console.log("Selected CHEESE value: " + foundValue + " from " + searchResults[0].direction);
+                        }
+                    }
+                    
+                    // Only update if we found a better value
+                    if(foundValue && (!result[keyword] || Number(foundValue) > Number(result[keyword]))){
+                        result[keyword] = foundValue;
+                    }
+                }
+            }
+        }
+    }
+    
+    return result;
+}
+
+function renderMenuMixTable(m1, m2){
+    let html = '<table><thead><tr><th>Item Name</th><th>Day Quantity</th><th>MTD Quantity</th></tr></thead><tbody>';
+    
+    for(const keyword of menuKeywords){
+        const dayQty = m1[keyword] || "";
+        const mtdQty = m2[keyword] || "";
+        
+        const dayCell = dayQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(dayQty);
+        const mtdCell = mtdQty === "" ? '<span style="color: #ff6666; font-style: italic;">Not Found</span>' : escapeHtml(mtdQty);
+        
+        html += '<tr><td>' + keyword + '</td><td>' + dayCell + '</td><td>' + mtdCell + '</td></tr>';
+    }
+    
+    html += '</tbody></table>';
+    document.getElementById("menuTableWrap").innerHTML = html;
+}
+
+// Download Functions
+function downloadMenuMix(which){
+    const result = which === 1 ? menuMixResult1 : menuMixResult2;
+    if(!result){ 
+        alert("No data to export."); 
+        return; 
+    }
+
+    const rows = [];
+    rows.push(["Item Name", "Quantity"]);
+    
+    for(const keyword of menuKeywords){
+        const qty = result[keyword] || "";
+        rows.push([keyword, qty]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "MenuMix");
+    const filename = which === 1 ? "Processed_Day_Menu_Mix.xlsx" : "Processed_MTD_Menu_Mix.xlsx";
+    XLSX.writeFile(wb, filename);
+}
+
+function downloadDSRComparison(){
+    const dsrWrap = document.getElementById("dsrTableWrap");
+    if(!dsrWrap || !dsrWrap.innerText.trim()){ 
+        alert("No DSR comparison to export."); 
+        return; 
+    }
+
+    let csvRows = [];
+    csvRows.push(["Field","Day","MTD"]);
+    const table = dsrWrap.querySelector("table");
+    if(!table){ 
+        alert("No DSR table found."); 
+        return; 
+    }
+    
+    const tableRows = table.querySelectorAll("tbody tr");
+    for(let i = 0; i < tableRows.length; i++){
+        const tds = tableRows[i].querySelectorAll("td");
+        const rowData = [tds[0].innerText.trim(), tds[1].innerText.trim(), tds[2].innerText.trim()];
+        csvRows.push(rowData);
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(csvRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DSR_Comparison");
+    XLSX.writeFile(wb, "DSR_Comparison.xlsx");
+}
+
+// Utility Functions
+function escapeHtml(v){
+    if(v === null || typeof v === "undefined") return "";
+    if(typeof v === "number") {
+        return Number.isInteger(v) ? v.toString() : v.toFixed(2).toString();
+    }
+    return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+</script>
+
+</body>
+</html>
